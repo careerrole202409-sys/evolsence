@@ -1,112 +1,236 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
+import { ActivityIndicator, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import MainHeader from '../../components/MainHeader';
+import { supabase } from '../../lib/supabase';
 
-import { Collapsible } from '@/components/ui/collapsible';
-import { ExternalLink } from '@/components/external-link';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Fonts } from '@/constants/theme';
+type MatchUser = {
+  id: string;
+  username: string;
+  bio: string;
+  avatar_url: string | null;
+  career: string;
+  education: string; 
+  commonTags: string[]; 
+  skillDiff: number;    
+  osDiff: number;       
+};
 
-export default function TabTwoScreen() {
+export default function ExploreScreen() {
+  const router = useRouter();
+  const [matches, setMatches] = useState<MatchUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchMatches = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      // 1. 自分のデータを取得
+      const { data: myStats } = await supabase.from('latest_stats').select('*').eq('user_id', user.id).single();
+      const { data: myLogs } = await supabase.from('read_logs').select('tags').eq('user_id', user.id);
+      
+      const myTags = new Set<string>();
+      myLogs?.forEach(log => log.tags?.forEach((t: string) => myTags.add(t)));
+
+      // 2. 他のユーザーのプロフィールを取得
+      const { data: candidates, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, username, bio, avatar_url, career, education')
+        .neq('id', user.id)
+        .eq('is_visible', true)
+        .limit(50);
+
+      if (profileError || !candidates || candidates.length === 0) {
+        setMatches([]);
+        setLoading(false);
+        return;
+      }
+
+      const candidateIds = candidates.map(c => c.id);
+
+      // 3. 候補者のステータスを一括取得（ここを結合から変更）
+      const { data: candidatesStats } = await supabase
+        .from('latest_stats')
+        .select('*')
+        .in('user_id', candidateIds);
+
+      // 4. 候補者の読書タグを一括取得
+      const { data: candidatesLogs } = await supabase
+        .from('read_logs')
+        .select('user_id, tags')
+        .in('user_id', candidateIds);
+
+      // データをマップ化して検索しやすくする
+      const statsMap: {[key: string]: any} = {};
+      candidatesStats?.forEach(stat => { statsMap[stat.user_id] = stat; });
+
+      const tagsMap: {[key: string]: Set<string>} = {};
+      candidatesLogs?.forEach(log => {
+        if (!tagsMap[log.user_id]) tagsMap[log.user_id] = new Set();
+        log.tags?.forEach((t: string) => tagsMap[log.user_id].add(t));
+      });
+
+      // 5. スコア計算
+      const scoredUsers = candidates.map(candidate => {
+        const stats = statsMap[candidate.id];
+        const otherTags = tagsMap[candidate.id] || new Set();
+        const commonTags = Array.from(otherTags).filter(t => myTags.has(t));
+
+        let skillDiff = 1000;
+        let osDiff = 1000;
+
+        if (myStats && stats) {
+          skillDiff = 
+            Math.abs((myStats.skill_sales || 0) - (stats.skill_sales || 0)) +
+            Math.abs((myStats.skill_marketing || 0) - (stats.skill_marketing || 0)) +
+            Math.abs((myStats.skill_technology || 0) - (stats.skill_technology || 0)) +
+            Math.abs((myStats.skill_finance || 0) - (stats.skill_finance || 0)) +
+            Math.abs((myStats.skill_management || 0) - (stats.skill_management || 0));
+
+          osDiff = 
+            Math.abs((myStats.os_strategy || 0) - (stats.os_strategy || 0)) +
+            Math.abs((myStats.os_execution || 0) - (stats.os_execution || 0)) +
+            Math.abs((myStats.os_logic || 0) - (stats.os_logic || 0)) +
+            Math.abs((myStats.os_humanity || 0) - (stats.os_humanity || 0)) +
+            Math.abs((myStats.os_liberal_arts || 0) - (stats.os_liberal_arts || 0));
+        }
+
+        return {
+          id: candidate.id,
+          username: candidate.username || 'Unknown',
+          bio: candidate.bio || '',
+          avatar_url: candidate.avatar_url,
+          career: candidate.career || '',
+          education: candidate.education || '',
+          commonTags,
+          skillDiff,
+          osDiff
+        };
+      });
+
+      // 並び替え
+      scoredUsers.sort((a, b) => {
+        if (b.commonTags.length !== a.commonTags.length) return b.commonTags.length - a.commonTags.length;
+        if (a.skillDiff !== b.skillDiff) return a.skillDiff - b.skillDiff;
+        return a.osDiff - b.osDiff;
+      });
+
+      setMatches(scoredUsers.slice(0, 20));
+
+    } catch (error) {
+      console.log('Explore Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchMatches();
+    }, [])
+  );
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchMatches();
+    setRefreshing(false);
+  };
+
+  const calculateSimilarity = (diff: number) => {
+    if (diff > 50) return 10;
+    return Math.max(10, 100 - (diff * 1.5)).toFixed(0);
+  };
+
+  const renderItem = ({ item }: { item: MatchUser }) => (
+    <TouchableOpacity style={styles.card} onPress={() => router.push(`/user/${item.id}`)}>
+      <View style={styles.cardHeader}>
+        <View style={styles.avatar}>
+          {item.avatar_url ? (
+            <Image 
+              source={{ uri: item.avatar_url }} 
+              style={styles.avatarImage} 
+              resizeMode="cover"
+            />
+          ) : (
+            <Ionicons name="person" size={24} color="#333" />
+          )}
+        </View>
+
+        <View style={styles.userInfo}>
+          <Text style={styles.username}>{item.username}</Text>
+          <Text style={styles.career} numberOfLines={1}>{item.career || '職歴なし'}</Text>
+          <Text style={styles.career} numberOfLines={1}>{item.education || '学歴なし'}</Text>
+        </View>
+        
+        <View style={styles.matchBadge}>
+          <Text style={styles.matchScore}>
+            {item.commonTags.length > 0 ? `共通タグ ${item.commonTags.length}` : 'New User'}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.divider} />
+      
+      <View style={styles.cardFooter}>
+         <Text style={styles.similarityText}>スキル類似度: {calculateSimilarity(item.skillDiff)}%</Text>
+         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={styles.viewDetail}>詳細を見る</Text>
+            <Ionicons name="chevron-forward" size={14} color="#00ffff" />
+         </View>
+      </View>
+    </TouchableOpacity>
+  );
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
+    <View style={styles.container}>
+      <MainHeader title="探索" />
+
+      {loading ? (
+        <View style={styles.center}><ActivityIndicator size="large" color="#00ffff" /></View>
+      ) : (
+        <FlatList
+          data={matches}
+          renderItem={renderItem}
+          keyExtractor={item => item.id}
+          contentContainerStyle={{ padding: 20 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#00ffff" />}
+          ListEmptyComponent={
+            <View style={styles.center}>
+              <Text style={styles.emptyText}>まだマッチするユーザーがいません。</Text>
+            </View>
+          }
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText
-          type="title"
-          style={{
-            fontFamily: Fonts.rounded,
-          }}>
-          Explore
-        </ThemedText>
-      </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image
-          source={require('@/assets/images/react-logo.png')}
-          style={{ width: 100, height: 100, alignSelf: 'center' }}
-        />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful{' '}
-          <ThemedText type="defaultSemiBold" style={{ fontFamily: Fonts.mono }}>
-            react-native-reanimated
-          </ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
-  },
-  titleContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
+  container: { flex: 1, backgroundColor: '#000' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 50 },
+  emptyText: { color: '#666', fontSize: 16, fontWeight: 'bold' },
+
+  card: { backgroundColor: '#111', borderRadius: 12, padding: 20, marginBottom: 15, borderWidth: 1, borderColor: '#333' },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
+  
+  avatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#1a1a1a', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#333', overflow: 'hidden' },
+  avatarImage: { width: '100%', height: '100%' },
+  
+  userInfo: { flex: 1, marginLeft: 15 },
+  username: { color: '#fff', fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
+  career: { color: '#888', fontSize: 12, marginBottom: 2 },
+  
+  matchBadge: { backgroundColor: 'rgba(0, 255, 255, 0.1)', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(0, 255, 255, 0.3)', alignSelf: 'flex-start' },
+  matchScore: { color: '#00ffff', fontSize: 10, fontWeight: 'bold' },
+
+  divider: { height: 1, backgroundColor: '#222', marginBottom: 10 },
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  similarityText: { color: '#666', fontSize: 12, fontWeight: 'bold' },
+  viewDetail: { color: '#00ffff', fontSize: 12, fontWeight: 'bold', marginRight: 2 },
 });
