@@ -2,17 +2,15 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, Dimensions, StyleSheet, Text, View } from 'react-native';
 
 export default function SplashScreen({ onFinish }: { onFinish: () => void }) {
-  const fadeAnim = useRef(new Animated.Value(0)).current; // 透明度
-  const scaleAnim = useRef(new Animated.Value(0.9)).current; // サイズ（少し拡大させる）
+  const fadeAnim = useRef(new Animated.Value(0)).current; 
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
 
   useEffect(() => {
-    // アニメーションの手順
     Animated.sequence([
-      // 1. ふわっと表示 & 少し拡大
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
-          duration: 1000, // 1秒かけて表示
+          duration: 1000,
           useNativeDriver: true,
         }),
         Animated.timing(scaleAnim, {
@@ -21,16 +19,13 @@ export default function SplashScreen({ onFinish }: { onFinish: () => void }) {
           useNativeDriver: true,
         }),
       ]),
-      // 2. しばらく待機（ロゴを見せる時間）
       Animated.delay(1500),
-      // 3. ふわっと消える
       Animated.timing(fadeAnim, {
         toValue: 0,
-        duration: 500, // 0.5秒かけて消える
+        duration: 500,
         useNativeDriver: true,
       }),
     ]).start(() => {
-      // アニメーションが終わったら親に伝える
       onFinish();
     });
   }, []);
@@ -40,7 +35,8 @@ export default function SplashScreen({ onFinish }: { onFinish: () => void }) {
       <Animated.View style={{ opacity: fadeAnim, transform: [{ scale: scaleAnim }] }}>
         <Text style={styles.title}>EVOLSENCE</Text>
         <View style={styles.line} />
-        <Text style={styles.subtitle}>Upgrade Your Business OS.</Text>
+        {/* 実利重視のタグライン */}
+        <Text style={styles.subtitle}>その読書を、ビジネスの武器に変える。</Text>
       </Animated.View>
     </View>
   );
@@ -51,7 +47,7 @@ const { width } = Dimensions.get('window');
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000', // 真っ黒な背景
+    backgroundColor: '#000',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 9999,
@@ -66,16 +62,16 @@ const styles = StyleSheet.create({
   line: {
     width: 40,
     height: 2,
-    backgroundColor: '#00ffff', // シアン色のアクセント線
+    backgroundColor: '#00ffff',
     marginTop: 20,
     marginBottom: 20,
     alignSelf: 'center',
   },
   subtitle: {
-    fontSize: 14,
-    color: '#888',
-    letterSpacing: 2,
+    fontSize: 15, 
+    color: '#ccc',
+    letterSpacing: 1, // 日本語として読みやすい間隔
     textAlign: 'center',
-    fontWeight: '300',
+    fontWeight: '600',
   },
 });

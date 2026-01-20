@@ -1,7 +1,11 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// ★重要：ここにAI Studioで取得したキーを貼り付けてください
-const API_KEY = "AIzaSyDimJ4SDfh6jSh0tw7AnxLG_TdRVnXchuo"; 
+// ★修正：直書きをやめて、環境変数から読み込む
+const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || "";
+
+if (!API_KEY) {
+  console.error("APIキーが設定されていません。.envファイルを確認してください。");
+}
 
 const genAI = new GoogleGenerativeAI(API_KEY);
 
