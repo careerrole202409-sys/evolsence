@@ -3,12 +3,11 @@ import { createClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 import 'react-native-url-polyfill/auto';
 
-// ★ご自身のURLとキーに戻してください
-const supabaseUrl = "https://wirsnivematggblznqxo.supabase.co"; 
-const supabaseAnonKey = "sb_publishable_oV0Yp5KCWrJy9hnzct8bhg_Ctn4bVw7"; 
+// ★ここを変更：直接書かずに process.env から読み込む
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || "";
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "";
 
-// ★Webならブラウザ標準の保存場所、アプリならAsyncStorageを使う
-// これが一番バグりません
+// (以下、storageAdapterの設定などはそのままでOK)
 const storageAdapter = Platform.OS === 'web' 
   ? {
       getItem: (key: string) => {
