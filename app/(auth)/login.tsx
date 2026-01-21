@@ -11,18 +11,15 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
 
   const handleAuth = async () => {
-    // Web以外ならキーボードを閉じる
     if (Platform.OS !== 'web') {
       Keyboard.dismiss();
     }
     
-    // 1. 入力チェック
     if (!email || !password || !inviteCode) {
       Alert.alert('エラー', '全ての項目を入力してください');
       return;
     }
     
-    // 2. 招待コードチェック (EVOLSENCE2026に変更)
     if (inviteCode !== 'EVOLSENCE2026') {
       Alert.alert('エラー', '招待コードが無効です');
       return;
@@ -37,32 +34,38 @@ export default function LoginScreen() {
         password: password,
       });
 
-      // ログイン成功ならダッシュボードへ
+      // ログイン成功ならプロフィール更新してダッシュボードへ
       if (!loginError && loginData.session) {
+        // ★ここを追加：ログイン時にもメアドを保存・更新しておく
+        await supabase.from('profiles').upsert({
+          id: loginData.user.id,
+          email: email, // メール保存
+          updated_at: new Date(),
+        });
+
         router.replace('/(tabs)/status');
         return;
       }
 
-      // 4. ログイン失敗（ユーザーがいない等）なら、「新規登録」を試す
+      // 4. ログイン失敗なら「新規登録」を試す
       const { data: signupData, error: signupError } = await supabase.auth.signUp({
         email: email,
         password: password,
       });
 
       if (signupError) {
-        // 両方ダメならエラー表示（パスワード間違いなど）
-        // ※セキュリティのため詳細すぎないエラーを出すのが一般的ですが、今回はわかりやすく表示
         throw new Error(loginError?.message || signupError.message);
       }
 
-      // 5. 新規登録成功ならプロフィール作成してダッシュボードへ
+      // 5. 新規登録成功ならプロフィール作成
       if (signupData.user) {
         const { error: profileError } = await supabase
           .from('profiles')
           .upsert({ 
               id: signupData.user.id, 
-              username: 'Unknown User', // 初期ネーム
+              username: 'Unknown User',
               invite_code: inviteCode,
+              email: email, // ★ここを追加：メール保存
               updated_at: new Date(),
           });
         
