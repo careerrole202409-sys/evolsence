@@ -20,7 +20,7 @@ export default function LoginScreen() {
       Alert.alert('エラー', '全ての項目を入力してください');
       return;
     }
-    if (inviteCode !== 'EVOLSENCE2025') {
+    if (inviteCode !== 'EVOLSENCE2026') {
       Alert.alert('エラー', '招待コードが無効です');
       return;
     }
