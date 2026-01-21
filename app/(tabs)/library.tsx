@@ -20,12 +20,14 @@ export default function LibraryScreen() {
   const [books, setBooks] = useState<BookLog[]>([]);
   const [selectedBook, setSelectedBook] = useState<BookLog | null>(null);
   
+  // 追加モーダル用
   const [isAddModalVisible, setAddModalVisible] = useState(false);
   const [inputMode, setInputMode] = useState<'single' | 'bulk'>('single');
   const [inputTitle, setInputTitle] = useState('');
   const [inputAuthor, setInputAuthor] = useState('');
   const [bulkInputs, setBulkInputs] = useState([{ title: '', author: '' }, { title: '', author: '' }, { title: '', author: '' }]);
 
+  // 編集用
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editAuthor, setEditAuthor] = useState('');
@@ -122,19 +124,17 @@ export default function LibraryScreen() {
     </TouchableOpacity>
   );
 
-  // ★重要：Webとアプリでコンテナを使い分ける
-  // Web: View (何もしない)
-  // App: KeyboardAvoidingView (キーボード避ける)
+  // コンテナの切り替え（WebならView、アプリならKeyboardAvoidingView）
   const ContainerComponent = Platform.OS === 'web' ? View : KeyboardAvoidingView;
   const containerProps = Platform.OS === 'web' 
-    ? { style: styles.modalOverlay } 
+    ? { style: styles.modalOverlay } // Webはスタイルのみ
     : { 
         style: styles.modalOverlay, 
         behavior: Platform.OS === 'ios' ? 'padding' : 'height',
-        keyboardVerticalOffset: Platform.OS === 'ios' ? 100 : 0 // ★ここで持ち上げ具合を調整
+        keyboardVerticalOffset: Platform.OS === 'ios' ? 100 : 0
       };
 
-  // タップ検知ラッパー
+  // タップ検知ラッパー（Webなら何もしない）
   const Wrapper = Platform.OS === 'web' ? React.Fragment : TouchableWithoutFeedback;
   const wrapperProps = Platform.OS === 'web' ? {} : { onPress: Keyboard.dismiss };
 
@@ -147,7 +147,6 @@ export default function LibraryScreen() {
       {/* 追加モーダル */}
       <Modal visible={isAddModalVisible} animationType="slide" transparent={true}>
         <Wrapper {...wrapperProps}>
-          {/* ★修正したコンテナを使用 */}
           <ContainerComponent {...(containerProps as any)}>
             <View style={styles.inputContainer}>
               <Text style={styles.modalTitle}>本を分析</Text>
@@ -191,7 +190,6 @@ export default function LibraryScreen() {
       {/* 詳細モーダル */}
       <Modal visible={!!selectedBook} animationType="slide" transparent={true}>
         <Wrapper {...wrapperProps}>
-          {/* ★修正したコンテナを使用 */}
           <ContainerComponent {...(containerProps as any)}>
             <View style={styles.modalContent}>
               {selectedBook && (
@@ -219,7 +217,10 @@ export default function LibraryScreen() {
                     <>
                       <Text style={styles.sectionTitle}>獲得ステータス</Text><View style={styles.badgesContainer}>{renderPoints(selectedBook.gained_points)}</View>
                       <Text style={styles.sectionTitle}>あらすじ</Text><Text style={styles.summaryText}>{selectedBook.summary || 'No summary'}</Text>
-                      <View style={styles.memoContainer}><Text style={styles.sectionTitle}>読書メモ</Text>{selectedBook.memo ? <Text style={styles.memoText}>{selectedBook.memo}</Text> : <Text style={styles.emptyMemoText}>まだメモがありません。{'\n'}右上の編集ボタンから追加できます。</Text>}</View>
+                      <View style={styles.memoContainer}>
+                        <Text style={styles.sectionTitle}>読書メモ</Text>
+                        {selectedBook.memo ? <Text style={styles.memoText}>{selectedBook.memo}</Text> : <Text style={styles.emptyMemoText}>まだメモがありません。{'\n'}右上の編集ボタンから追加できます。</Text>}
+                      </View>
                       {selectedBook.tags && <View style={styles.tagsContainer}>{selectedBook.tags.map((tag, index) => <Text key={index} style={styles.tag}>#{tag}</Text>)}</View>}
                     </>
                   )}
@@ -247,8 +248,22 @@ const styles = StyleSheet.create({
   addButton: { backgroundColor: '#fff', padding: 16, borderRadius: 30, alignItems: 'center' },
   addButtonText: { color: '#000', fontWeight: 'bold', fontSize: 16, letterSpacing: 1 },
   
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end', padding: 20 },
-  inputContainer: { backgroundColor: '#1a1a1a', padding: 30, borderRadius: 20, width: '100%', marginBottom: 30 }, // マージン調整
+  // ★レイアウト修正
+  modalOverlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.8)', 
+    // Webなら中央寄せ、アプリなら下寄せ
+    justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end', 
+    padding: 20 
+  },
+  inputContainer: { 
+    backgroundColor: '#1a1a1a', 
+    padding: 30, 
+    borderRadius: 20, 
+    width: '100%', 
+    // Webならマージンなし、アプリならキーボード避けのマージン
+    marginBottom: Platform.OS === 'web' ? 0 : 50 
+  },
   
   modeTabs: { flexDirection: 'row', marginBottom: 20, backgroundColor: '#111', borderRadius: 10, padding: 2 },
   modeTab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
@@ -261,7 +276,19 @@ const styles = StyleSheet.create({
   addMoreButton: { padding: 10, alignItems: 'center' },
   addMoreText: { color: '#00ffff', fontWeight: 'bold' },
   editInput: { backgroundColor: '#333', color: '#fff', padding: 15, borderRadius: 10, fontSize: 16, ...Platform.select({ web: { outlineStyle: 'none' } as any }) },
-  modalContent: { backgroundColor: '#1a1a1a', height: '92%', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 25 },
+  
+  // モーダルコンテンツ
+  modalContent: { 
+    backgroundColor: '#1a1a1a', 
+    // Webなら少し小さく、アプリなら画面いっぱい
+    height: Platform.OS === 'web' ? '80%' : '92%', 
+    // Webなら全角丸、アプリなら上だけ角丸
+    borderRadius: 20,
+    borderTopLeftRadius: 20, 
+    borderTopRightRadius: 20, 
+    padding: 25 
+  },
+  
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
   headerIcons: { flexDirection: 'row', alignItems: 'center' },
   detailTitle: { fontSize: 24, fontWeight: 'bold', color: '#fff', marginBottom: 5, flex: 1 },
