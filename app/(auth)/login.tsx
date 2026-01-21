@@ -10,50 +10,74 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleLogin = async () => {
-    // Webではキーボード操作不要なのでスキップ
+  const handleAuth = async () => {
+    // Web以外ならキーボードを閉じる
     if (Platform.OS !== 'web') {
       Keyboard.dismiss();
     }
     
+    // 1. 入力チェック
     if (!email || !password || !inviteCode) {
       Alert.alert('エラー', '全ての項目を入力してください');
       return;
     }
+    
+    // 2. 招待コードチェック (EVOLSENCE2026に変更)
     if (inviteCode !== 'EVOLSENCE2026') {
       Alert.alert('エラー', '招待コードが無効です');
       return;
     }
+
     setLoading(true);
 
-    const { data, error } = await supabase.auth.signUp({
-      email: email,
-      password: password,
-    });
+    try {
+      // 3. まず「ログイン」を試す
+      const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: password,
+      });
 
-    if (error) {
-      Alert.alert('登録失敗', error.message);
-      setLoading(false);
-      return;
-    }
+      // ログイン成功ならダッシュボードへ
+      if (!loginError && loginData.session) {
+        router.replace('/(tabs)/status');
+        return;
+      }
 
-    if (data.user) {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({ 
-            id: data.user.id, 
-            username: 'Unknown User',
-            invite_code: inviteCode,
-            updated_at: new Date(),
-        });
-      if (profileError) console.log('Profile Error:', profileError);
-      
+      // 4. ログイン失敗（ユーザーがいない等）なら、「新規登録」を試す
+      const { data: signupData, error: signupError } = await supabase.auth.signUp({
+        email: email,
+        password: password,
+      });
+
+      if (signupError) {
+        // 両方ダメならエラー表示（パスワード間違いなど）
+        // ※セキュリティのため詳細すぎないエラーを出すのが一般的ですが、今回はわかりやすく表示
+        throw new Error(loginError?.message || signupError.message);
+      }
+
+      // 5. 新規登録成功ならプロフィール作成してダッシュボードへ
+      if (signupData.user) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert({ 
+              id: signupData.user.id, 
+              username: 'Unknown User', // 初期ネーム
+              invite_code: inviteCode,
+              updated_at: new Date(),
+          });
+        
+        if (profileError) console.log('Profile Error:', profileError);
+        
+        router.replace('/(tabs)/status');
+      }
+
+    } catch (error: any) {
+      Alert.alert('エラー', '認証に失敗しました。\n' + (error.message || '入力を確認してください'));
+    } finally {
       setLoading(false);
-      router.replace('/(tabs)/status');
     }
   };
 
-  // 画面の中身（共通部分）
   const content = (
     <KeyboardAvoidingView 
       style={styles.container} 
@@ -97,7 +121,7 @@ export default function LoginScreen() {
 
           <TouchableOpacity 
             style={styles.button} 
-            onPress={handleLogin}
+            onPress={handleAuth}
             disabled={loading}
           >
             {loading ? (
@@ -111,10 +135,7 @@ export default function LoginScreen() {
     </KeyboardAvoidingView>
   );
 
-  // ★修正ポイント：Webならそのまま、スマホならタップで閉じる機能をつける
-  if (Platform.OS === 'web') {
-    return content;
-  }
+  if (Platform.OS === 'web') return content;
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -160,7 +181,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#333',
     fontSize: 16,
-    // ★Webでのフォーカス枠を消すためのスタイル
     ...Platform.select({
       web: { outlineStyle: 'none' } as any
     }),
