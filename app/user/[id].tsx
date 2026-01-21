@@ -10,7 +10,6 @@ type UserProfile = {
   username: string; bio: string; avatar_url: string; career: string; education: string;
 };
 
-// ラベル変換用（モーダルで使う）
 const LABEL_MAP: {[key: string]: string} = {
   os_strategy: "戦略", os_execution: "実行", os_logic: "論理", os_humanity: "心理", os_liberal_arts: "教養",
   skill_sales: "営業", skill_marketing: "マーケ", skill_technology: "IT", skill_finance: "財務", skill_management: "管理",
@@ -32,7 +31,6 @@ export default function UserDetailScreen() {
   const [totalOS, setTotalOS] = useState(0);
   const [totalSkill, setTotalSkill] = useState(0);
 
-  // 詳細モーダル用
   const [selectedBook, setSelectedBook] = useState<any>(null);
 
   useEffect(() => {
@@ -84,7 +82,6 @@ export default function UserDetailScreen() {
     }
   };
 
-  // ポイント表示パーツ（モーダル用）
   const renderPoints = (points: any) => {
     if (!points) return null;
     return Object.entries(points).map(([key, val]) => {
@@ -92,18 +89,13 @@ export default function UserDetailScreen() {
       const label = LABEL_MAP[key] || key;
       const isOs = key.startsWith('os_');
       const color = isOs ? '#00ffff' : '#ff00ff'; 
-      return (
-        <View key={key} style={[styles.badge, { borderColor: color }]}>
-          <Text style={[styles.badgeText, { color: color }]}>{label} +{String(val)}</Text>
-        </View>
-      );
+      return (<View key={key} style={[styles.badge, { borderColor: color }]}><Text style={[styles.badgeText, { color: color }]}>{label} +{String(val)}</Text></View>);
     });
   };
 
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#00ffff" /></View>;
 
   const renderBookItem = ({ item }: { item: any }) => (
-    // ★修正：タップ可能にしてモーダルを開く
     <TouchableOpacity style={styles.bookCard} onPress={() => setSelectedBook(item)}>
       <Ionicons name="book-outline" size={24} color="#ccc" />
       <View style={{ marginLeft: 15, flex: 1 }}>
@@ -128,6 +120,7 @@ export default function UserDetailScreen() {
         <View style={styles.profileSection}>
           <View style={styles.profileHeader}>
             <View style={styles.avatar}>
+              {/* ★ここ：画像があれば表示 */}
               {profile?.avatar_url ? (
                 <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
               ) : (
@@ -135,18 +128,15 @@ export default function UserDetailScreen() {
               )}
             </View>
             <View style={styles.statsRow}>
-              {/* ★修正：文字サイズを大きく */}
               <View style={styles.statItem}><Text style={styles.statValue}>{followerCount}</Text><Text style={styles.statLabel}>フォロワー</Text></View>
               <View style={styles.statItem}><Text style={styles.statValue}>{totalOS}</Text><Text style={styles.statLabel}>ビジネスOS</Text></View>
               <View style={styles.statItem}><Text style={styles.statValue}>{totalSkill}</Text><Text style={styles.statLabel}>スキル</Text></View>
             </View>
           </View>
 
-          {/* ★修正：文字サイズを大きく */}
           <Text style={styles.bio}>{profile?.bio || '自己紹介はありません'}</Text>
           
           <View style={styles.infoRow}>
-            {/* ★修正：文字サイズを大きく */}
             <Text style={styles.infoText}>{profile?.career || '職歴なし'}</Text>
             <Text style={styles.infoText}> / </Text>
             <Text style={styles.infoText}>{profile?.education || '学歴なし'}</Text>
@@ -215,7 +205,7 @@ export default function UserDetailScreen() {
         )}
       </ScrollView>
 
-      {/* ★追加：本棚詳細モーダル */}
+      {/* 詳細モーダル */}
       <Modal visible={!!selectedBook} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -231,22 +221,11 @@ export default function UserDetailScreen() {
                   </TouchableOpacity>
                 </View>
                 <View style={styles.divider} />
-
                 <Text style={styles.sectionTitle}>獲得ステータス</Text>
-                <View style={styles.badgesContainer}>
-                  {renderPoints(selectedBook.gained_points)}
-                </View>
-
+                <View style={styles.badgesContainer}>{renderPoints(selectedBook.gained_points)}</View>
                 <Text style={styles.sectionTitle}>あらすじ</Text>
                 <Text style={styles.summaryText}>{selectedBook.summary || 'No summary'}</Text>
-
-                {selectedBook.tags && (
-                  <View style={styles.tagsContainer}>
-                    {selectedBook.tags.map((tag: any) => (
-                      <Text key={tag} style={styles.tag}>#{tag}</Text>
-                    ))}
-                  </View>
-                )}
+                {selectedBook.tags && <View style={styles.tagsContainer}>{selectedBook.tags.map((tag: any, i:number) => <Text key={i} style={styles.tag}>#{tag}</Text>)}</View>}
                 <View style={{ height: 40 }} />
               </ScrollView>
             )}
@@ -265,18 +244,18 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
   
   profileSection: { padding: 20, borderBottomWidth: 1, borderBottomColor: '#111' },
-  profileHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 }, // マージン増
+  profileHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   avatar: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#1a1a1a', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#333', marginRight: 20, overflow: 'hidden' },
-  avatarImage: { width: '100%', height: '100%' },
+  avatarImage: { width: '100%', height: '100%' }, // 追加
 
   statsRow: { flex: 1, flexDirection: 'row', justifyContent: 'space-around' },
   statItem: { alignItems: 'center' },
-  statValue: { color: '#fff', fontSize: 22, fontWeight: 'bold' }, // ★サイズUP (18->22)
-  statLabel: { color: '#888', fontSize: 12, marginTop: 4 },     // ★サイズUP (10->12)
+  statValue: { color: '#fff', fontSize: 22, fontWeight: 'bold' },
+  statLabel: { color: '#888', fontSize: 12, marginTop: 4 },
 
-  bio: { fontSize: 15, color: '#ddd', marginBottom: 15, lineHeight: 22 }, // ★サイズUP (13->15)
+  bio: { fontSize: 15, color: '#ddd', marginBottom: 15, lineHeight: 22 },
   infoRow: { flexDirection: 'row', marginBottom: 25 },
-  infoText: { color: '#aaa', fontSize: 14, marginRight: 5, fontWeight: 'bold' }, // ★サイズUP (12->14)
+  infoText: { color: '#aaa', fontSize: 14, marginRight: 5, fontWeight: 'bold' },
 
   actionButtons: { flexDirection: 'row', gap: 10 },
   actionButton: { flex: 1, paddingVertical: 12, borderRadius: 20, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' },
@@ -300,12 +279,11 @@ const styles = StyleSheet.create({
   emptyText: { color: '#666', textAlign: 'center', marginTop: 20 },
 
   bookCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111', padding: 15, borderRadius: 8, borderWidth: 1, borderColor: '#222' },
-  bookTitle: { color: '#fff', fontWeight: 'bold', fontSize: 16 }, // ★サイズUP
-  bookAuthor: { color: '#888', fontSize: 14 }, // ★サイズUP
+  bookTitle: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  bookAuthor: { color: '#888', fontSize: 14 },
   miniBadge: { backgroundColor: '#333', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4 },
   miniBadgeText: { color: '#aaa', fontSize: 11 },
 
-  // モーダル用スタイル (追加)
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: '#1a1a1a', height: '80%', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 25 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
