@@ -118,11 +118,25 @@ export default function ProfileScreen() {
     setLoading(false);
   };
 
+ // ログアウト処理（Web対応版）
   const handleSignOut = async () => {
-    Alert.alert("ログアウト", "本当にログアウトしますか？", [
-      { text: "キャンセル", style: "cancel" },
-      { text: "ログアウト", style: "destructive", onPress: async () => { await supabase.auth.signOut(); router.replace('/(auth)/login'); } }
-    ]);
+    const doLogout = async () => {
+      await supabase.auth.signOut();
+      router.replace('/(auth)/login');
+    };
+
+    if (Platform.OS === 'web') {
+      // Webブラウザ用の確認ダイアログ
+      if (window.confirm("本当にログアウトしますか？")) {
+        doLogout();
+      }
+    } else {
+      // アプリ用の確認ダイアログ
+      Alert.alert("ログアウト", "本当にログアウトしますか？", [
+        { text: "キャンセル", style: "cancel" },
+        { text: "ログアウト", style: "destructive", onPress: doLogout }
+      ]);
+    }
   };
 
   return (
