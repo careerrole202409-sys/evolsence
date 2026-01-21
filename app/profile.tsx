@@ -46,7 +46,7 @@ export default function ProfileScreen() {
     }
   };
 
-  // ★修正版：ArrayBufferを使って確実にアップロードする
+  // ■ 画像アップロード処理（Web対応版）
   const uploadImage = async (uri: string) => {
     try {
       setUploading(true);
@@ -57,16 +57,16 @@ export default function ProfileScreen() {
       const ext = uri.split('.').pop()?.toLowerCase() ?? 'png';
       const fileName = `${user.id}/${Date.now()}.${ext}`;
 
-      // 2. 画像をfetchしてBlob(ArrayBuffer)として取得
-      // これが一番確実な方法です
+      // 2. 画像をfetchしてBlobとして取得
+      // ★ここが修正点：WebではBlobで送るのが一番確実です
       const response = await fetch(uri);
-      const blob = await response.arrayBuffer();
+      const blob = await response.blob();
 
       // 3. アップロード
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(fileName, blob, {
-          contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+          contentType: blob.type || `image/${ext === 'jpg' ? 'jpeg' : ext}`,
           upsert: true,
         });
 
@@ -79,6 +79,7 @@ export default function ProfileScreen() {
       setAvatarUrl(publicData.publicUrl + `?t=${Date.now()}`);
 
     } catch (error: any) {
+      console.log(error);
       Alert.alert("エラー", "画像のアップロードに失敗しました: " + error.message);
     } finally {
       setUploading(false);
@@ -105,6 +106,7 @@ export default function ProfileScreen() {
     if (error) {
       Alert.alert('エラー', error.message);
     } else {
+      // 画面は戻さず完了通知のみ
       Alert.alert('完了', 'プロフィールを更新しました');
     }
     setLoading(false);
