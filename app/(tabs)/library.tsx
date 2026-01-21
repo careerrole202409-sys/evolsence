@@ -20,14 +20,12 @@ export default function LibraryScreen() {
   const [books, setBooks] = useState<BookLog[]>([]);
   const [selectedBook, setSelectedBook] = useState<BookLog | null>(null);
   
-  // 追加モーダル用
   const [isAddModalVisible, setAddModalVisible] = useState(false);
   const [inputMode, setInputMode] = useState<'single' | 'bulk'>('single');
   const [inputTitle, setInputTitle] = useState('');
   const [inputAuthor, setInputAuthor] = useState('');
   const [bulkInputs, setBulkInputs] = useState([{ title: '', author: '' }, { title: '', author: '' }, { title: '', author: '' }]);
 
-  // 編集用
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editAuthor, setEditAuthor] = useState('');
@@ -46,7 +44,6 @@ export default function LibraryScreen() {
 
   const handleExecuteAdd = () => {
     const targets: { title: string; author: string }[] = [];
-    
     if (inputMode === 'single') {
       if (inputTitle.trim()) targets.push({ title: inputTitle, author: inputAuthor });
     } else {
@@ -54,7 +51,6 @@ export default function LibraryScreen() {
         if (item.title.trim()) targets.push({ title: item.title, author: item.author });
       });
     }
-
     if (targets.length === 0) return;
 
     addBooksToQueue(targets);
@@ -62,7 +58,6 @@ export default function LibraryScreen() {
     setAddModalVisible(false);
     setInputTitle(''); setInputAuthor('');
     setBulkInputs([{ title: '', author: '' }, { title: '', author: '' }, { title: '', author: '' }]);
-    
     if (Platform.OS !== 'web') Keyboard.dismiss();
   };
 
@@ -127,89 +122,21 @@ export default function LibraryScreen() {
     </TouchableOpacity>
   );
 
-  // 追加モーダルの中身（共通部分）
-  const addModalContent = (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
-      <View style={styles.inputContainer}>
-        <Text style={styles.modalTitle}>本を分析</Text>
-        <View style={styles.modeTabs}>
-          <TouchableOpacity style={[styles.modeTab, inputMode === 'single' && styles.activeModeTab]} onPress={() => setInputMode('single')}>
-            <Text style={[styles.modeText, inputMode === 'single' && styles.activeModeText]}>1冊追加</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.modeTab, inputMode === 'bulk' && styles.activeModeTab]} onPress={() => setInputMode('bulk')}>
-            <Text style={[styles.modeText, inputMode === 'bulk' && styles.activeModeText]}>まとめて追加</Text>
-          </TouchableOpacity>
-        </View>
-        {inputMode === 'single' ? (
-          <View>
-            <Text style={styles.label}>タイトル</Text>
-            <TextInput style={styles.input} placeholder="例: イシューからはじめよ" placeholderTextColor="#666" value={inputTitle} onChangeText={setInputTitle} autoFocus />
-            <Text style={styles.label}>著者名（任意）</Text>
-            <TextInput style={styles.input} placeholder="例: 安宅和人" placeholderTextColor="#666" value={inputAuthor} onChangeText={setInputAuthor} />
-          </View>
-        ) : (
-          <View style={{ maxHeight: 300 }}>
-            <ScrollView nestedScrollEnabled>
-              {bulkInputs.map((item, index) => (
-                <View key={index} style={styles.bulkRow}>
-                  <TextInput style={[styles.input, { flex: 1, marginRight: 5 }]} placeholder="タイトル" placeholderTextColor="#666" value={item.title} onChangeText={(text) => updateBulkInput(index, 'title', text)} />
-                  <TextInput style={[styles.input, { flex: 0.6 }]} placeholder="著者" placeholderTextColor="#666" value={item.author} onChangeText={(text) => updateBulkInput(index, 'author', text)} />
-                </View>
-              ))}
-              <TouchableOpacity onPress={addBulkRow} style={styles.addMoreButton}><Text style={styles.addMoreText}>+ 枠を追加</Text></TouchableOpacity>
-            </ScrollView>
-          </View>
-        )}
-        <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.cancelButton} onPress={() => setAddModalVisible(false)}><Text style={styles.cancelButtonText}>キャンセル</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.analyzeButton} onPress={handleExecuteAdd}><Text style={styles.analyzeButtonText}>分析＆追加</Text></TouchableOpacity>
-        </View>
-      </View>
-    </KeyboardAvoidingView>
-  );
+  // ★重要：Webとアプリでコンテナを使い分ける
+  // Web: View (何もしない)
+  // App: KeyboardAvoidingView (キーボード避ける)
+  const ContainerComponent = Platform.OS === 'web' ? View : KeyboardAvoidingView;
+  const containerProps = Platform.OS === 'web' 
+    ? { style: styles.modalOverlay } 
+    : { 
+        style: styles.modalOverlay, 
+        behavior: Platform.OS === 'ios' ? 'padding' : 'height',
+        keyboardVerticalOffset: Platform.OS === 'ios' ? 100 : 0 // ★ここで持ち上げ具合を調整
+      };
 
-  // 詳細モーダルの中身（共通部分）
-  const detailModalContent = (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
-      <View style={styles.modalContent}>
-        {selectedBook && (
-          <ScrollView>
-            <View style={styles.modalHeader}>
-              {isEditing ? <Text style={styles.detailTitle}>情報を修正</Text> : <View style={{ flex: 1 }}><Text style={styles.detailTitle}>{selectedBook.book_title}</Text><Text style={styles.detailAuthor}>{selectedBook.author}</Text></View>}
-              <View style={styles.headerIcons}>
-                {isEditing ? (
-                  <><TouchableOpacity onPress={() => setIsEditing(false)} style={{ marginRight: 15 }}><Text style={{ color: '#ccc', fontWeight: 'bold' }}>取消</Text></TouchableOpacity><TouchableOpacity onPress={handleUpdateBook}><Text style={{ color: '#00ffff', fontWeight: 'bold' }}>保存</Text></TouchableOpacity></>
-                ) : (
-                  <><TouchableOpacity onPress={startEditing} style={{ marginRight: 15 }}><Ionicons name="create-outline" size={24} color="#fff" /></TouchableOpacity><TouchableOpacity onPress={handleDeleteBook} style={{ marginRight: 15 }}><Ionicons name="trash-outline" size={24} color="#ff4444" /></TouchableOpacity><TouchableOpacity onPress={() => setSelectedBook(null)}><Ionicons name="close-circle" size={30} color="#666" /></TouchableOpacity></>
-                )}
-              </View>
-            </View>
-            <View style={styles.divider} />
-            {isEditing ? (
-              <View style={{ gap: 15 }}>
-                <View><Text style={styles.label}>タイトル</Text><TextInput style={styles.editInput} value={editTitle} onChangeText={setEditTitle} /></View>
-                <View><Text style={styles.label}>著者</Text><TextInput style={styles.editInput} value={editAuthor} onChangeText={setEditAuthor} /></View>
-                <View><Text style={styles.label}>タグ（カンマ区切り）</Text><TextInput style={styles.editInput} value={editTags} onChangeText={setEditTags} placeholder="例: 心理学, マーケティング" placeholderTextColor="#666" /></View>
-                <View><Text style={styles.label}>あらすじ</Text><TextInput style={[styles.editInput, { height: 80 }]} value={editSummary} onChangeText={setEditSummary} multiline /></View>
-                <View><Text style={styles.label}>読書メモ（自分のみ表示）</Text><TextInput style={[styles.editInput, { height: 100, backgroundColor: '#222', borderColor: '#00ffff', borderWidth: 1 }]} value={editMemo} onChangeText={setEditMemo} multiline placeholder="気づきや学びをメモしよう" placeholderTextColor="#555" /></View>
-              </View>
-            ) : (
-              <>
-                <Text style={styles.sectionTitle}>獲得ステータス</Text><View style={styles.badgesContainer}>{renderPoints(selectedBook.gained_points)}</View>
-                <Text style={styles.sectionTitle}>あらすじ</Text><Text style={styles.summaryText}>{selectedBook.summary || 'No summary'}</Text>
-                <View style={styles.memoContainer}>
-                  <Text style={styles.sectionTitle}>読書メモ</Text>
-                  {selectedBook.memo ? <Text style={styles.memoText}>{selectedBook.memo}</Text> : <Text style={styles.emptyMemoText}>まだメモがありません。{'\n'}右上の編集ボタンから追加できます。</Text>}
-                </View>
-                {selectedBook.tags && <View style={styles.tagsContainer}>{selectedBook.tags.map((tag, index) => <Text key={index} style={styles.tag}>#{tag}</Text>)}</View>}
-              </>
-            )}
-            <View style={{ height: 40 }} />
-          </ScrollView>
-        )}
-      </View>
-    </KeyboardAvoidingView>
-  );
+  // タップ検知ラッパー
+  const Wrapper = Platform.OS === 'web' ? React.Fragment : TouchableWithoutFeedback;
+  const wrapperProps = Platform.OS === 'web' ? {} : { onPress: Keyboard.dismiss };
 
   return (
     <View style={styles.container}>
@@ -219,26 +146,89 @@ export default function LibraryScreen() {
 
       {/* 追加モーダル */}
       <Modal visible={isAddModalVisible} animationType="slide" transparent={true}>
-        {/* ★修正ポイント: Webならそのまま、アプリならTouchableWithoutFeedbackで包む */}
-        {Platform.OS === 'web' ? (
-          addModalContent
-        ) : (
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            {addModalContent}
-          </TouchableWithoutFeedback>
-        )}
+        <Wrapper {...wrapperProps}>
+          {/* ★修正したコンテナを使用 */}
+          <ContainerComponent {...(containerProps as any)}>
+            <View style={styles.inputContainer}>
+              <Text style={styles.modalTitle}>本を分析</Text>
+              <View style={styles.modeTabs}>
+                <TouchableOpacity style={[styles.modeTab, inputMode === 'single' && styles.activeModeTab]} onPress={() => setInputMode('single')}>
+                  <Text style={[styles.modeText, inputMode === 'single' && styles.activeModeText]}>1冊追加</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.modeTab, inputMode === 'bulk' && styles.activeModeTab]} onPress={() => setInputMode('bulk')}>
+                  <Text style={[styles.modeText, inputMode === 'bulk' && styles.activeModeText]}>まとめて追加</Text>
+                </TouchableOpacity>
+              </View>
+              {inputMode === 'single' ? (
+                <View>
+                  <Text style={styles.label}>タイトル</Text>
+                  <TextInput style={styles.input} placeholder="例: イシューからはじめよ" placeholderTextColor="#666" value={inputTitle} onChangeText={setInputTitle} autoFocus />
+                  <Text style={styles.label}>著者名（任意）</Text>
+                  <TextInput style={styles.input} placeholder="例: 安宅和人" placeholderTextColor="#666" value={inputAuthor} onChangeText={setInputAuthor} />
+                </View>
+              ) : (
+                <View style={{ maxHeight: 300 }}>
+                  <ScrollView nestedScrollEnabled>
+                    {bulkInputs.map((item, index) => (
+                      <View key={index} style={styles.bulkRow}>
+                        <TextInput style={[styles.input, { flex: 1, marginRight: 5 }]} placeholder="タイトル" placeholderTextColor="#666" value={item.title} onChangeText={(text) => updateBulkInput(index, 'title', text)} />
+                        <TextInput style={[styles.input, { flex: 0.6 }]} placeholder="著者" placeholderTextColor="#666" value={item.author} onChangeText={(text) => updateBulkInput(index, 'author', text)} />
+                      </View>
+                    ))}
+                    <TouchableOpacity onPress={addBulkRow} style={styles.addMoreButton}><Text style={styles.addMoreText}>+ 枠を追加</Text></TouchableOpacity>
+                  </ScrollView>
+                </View>
+              )}
+              <View style={styles.buttonRow}>
+                <TouchableOpacity style={styles.cancelButton} onPress={() => setAddModalVisible(false)}><Text style={styles.cancelButtonText}>キャンセル</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.analyzeButton} onPress={handleExecuteAdd}><Text style={styles.analyzeButtonText}>分析＆追加</Text></TouchableOpacity>
+              </View>
+            </View>
+          </ContainerComponent>
+        </Wrapper>
       </Modal>
 
       {/* 詳細モーダル */}
       <Modal visible={!!selectedBook} animationType="slide" transparent={true}>
-        {/* ★修正ポイント: Webならそのまま、アプリならTouchableWithoutFeedbackで包む */}
-        {Platform.OS === 'web' ? (
-          detailModalContent
-        ) : (
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            {detailModalContent}
-          </TouchableWithoutFeedback>
-        )}
+        <Wrapper {...wrapperProps}>
+          {/* ★修正したコンテナを使用 */}
+          <ContainerComponent {...(containerProps as any)}>
+            <View style={styles.modalContent}>
+              {selectedBook && (
+                <ScrollView>
+                  <View style={styles.modalHeader}>
+                    {isEditing ? <Text style={styles.detailTitle}>情報を修正</Text> : <View style={{ flex: 1 }}><Text style={styles.detailTitle}>{selectedBook.book_title}</Text><Text style={styles.detailAuthor}>{selectedBook.author}</Text></View>}
+                    <View style={styles.headerIcons}>
+                      {isEditing ? (
+                        <><TouchableOpacity onPress={() => setIsEditing(false)} style={{ marginRight: 15 }}><Text style={{ color: '#ccc', fontWeight: 'bold' }}>取消</Text></TouchableOpacity><TouchableOpacity onPress={handleUpdateBook}><Text style={{ color: '#00ffff', fontWeight: 'bold' }}>保存</Text></TouchableOpacity></>
+                      ) : (
+                        <><TouchableOpacity onPress={startEditing} style={{ marginRight: 15 }}><Ionicons name="create-outline" size={24} color="#fff" /></TouchableOpacity><TouchableOpacity onPress={handleDeleteBook} style={{ marginRight: 15 }}><Ionicons name="trash-outline" size={24} color="#ff4444" /></TouchableOpacity><TouchableOpacity onPress={() => setSelectedBook(null)}><Ionicons name="close-circle" size={30} color="#666" /></TouchableOpacity></>
+                      )}
+                    </View>
+                  </View>
+                  <View style={styles.divider} />
+                  {isEditing ? (
+                    <View style={{ gap: 15 }}>
+                      <View><Text style={styles.label}>タイトル</Text><TextInput style={styles.editInput} value={editTitle} onChangeText={setEditTitle} /></View>
+                      <View><Text style={styles.label}>著者</Text><TextInput style={styles.editInput} value={editAuthor} onChangeText={setEditAuthor} /></View>
+                      <View><Text style={styles.label}>タグ（カンマ区切り）</Text><TextInput style={styles.editInput} value={editTags} onChangeText={setEditTags} placeholder="例: 心理学, マーケティング" placeholderTextColor="#666" /></View>
+                      <View><Text style={styles.label}>あらすじ</Text><TextInput style={[styles.editInput, { height: 80 }]} value={editSummary} onChangeText={setEditSummary} multiline /></View>
+                      <View><Text style={styles.label}>読書メモ（自分のみ表示）</Text><TextInput style={[styles.editInput, { height: 100, backgroundColor: '#222', borderColor: '#00ffff', borderWidth: 1 }]} value={editMemo} onChangeText={setEditMemo} multiline placeholder="気づきや学びをメモしよう" placeholderTextColor="#555" /></View>
+                    </View>
+                  ) : (
+                    <>
+                      <Text style={styles.sectionTitle}>獲得ステータス</Text><View style={styles.badgesContainer}>{renderPoints(selectedBook.gained_points)}</View>
+                      <Text style={styles.sectionTitle}>あらすじ</Text><Text style={styles.summaryText}>{selectedBook.summary || 'No summary'}</Text>
+                      <View style={styles.memoContainer}><Text style={styles.sectionTitle}>読書メモ</Text>{selectedBook.memo ? <Text style={styles.memoText}>{selectedBook.memo}</Text> : <Text style={styles.emptyMemoText}>まだメモがありません。{'\n'}右上の編集ボタンから追加できます。</Text>}</View>
+                      {selectedBook.tags && <View style={styles.tagsContainer}>{selectedBook.tags.map((tag, index) => <Text key={index} style={styles.tag}>#{tag}</Text>)}</View>}
+                    </>
+                  )}
+                  <View style={{ height: 40 }} />
+                </ScrollView>
+              )}
+            </View>
+          </ContainerComponent>
+        </Wrapper>
       </Modal>
     </View>
   );
@@ -256,8 +246,10 @@ const styles = StyleSheet.create({
   footer: { position: 'absolute', bottom: 0, width: '100%', padding: 20, backgroundColor: 'rgba(0,0,0,0.9)' },
   addButton: { backgroundColor: '#fff', padding: 16, borderRadius: 30, alignItems: 'center' },
   addButtonText: { color: '#000', fontWeight: 'bold', fontSize: 16, letterSpacing: 1 },
+  
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end', padding: 20 },
-  inputContainer: { backgroundColor: '#1a1a1a', padding: 30, borderRadius: 20, width: '100%', marginBottom: 50 },
+  inputContainer: { backgroundColor: '#1a1a1a', padding: 30, borderRadius: 20, width: '100%', marginBottom: 30 }, // マージン調整
+  
   modeTabs: { flexDirection: 'row', marginBottom: 20, backgroundColor: '#111', borderRadius: 10, padding: 2 },
   modeTab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
   activeModeTab: { backgroundColor: '#333' },
