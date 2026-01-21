@@ -11,7 +11,11 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
 
   const handleLogin = async () => {
-    Keyboard.dismiss();
+    // Webではキーボード操作不要なのでスキップ
+    if (Platform.OS !== 'web') {
+      Keyboard.dismiss();
+    }
+    
     if (!email || !password || !inviteCode) {
       Alert.alert('エラー', '全ての項目を入力してください');
       return;
@@ -39,7 +43,8 @@ export default function LoginScreen() {
         .upsert({ 
             id: data.user.id, 
             username: 'Unknown User',
-            invite_code: inviteCode 
+            invite_code: inviteCode,
+            updated_at: new Date(),
         });
       if (profileError) console.log('Profile Error:', profileError);
       
@@ -48,64 +53,72 @@ export default function LoginScreen() {
     }
   };
 
+  // 画面の中身（共通部分）
+  const content = (
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
+        <Text style={styles.title}>Evolsence</Text>
+        <Text style={styles.subtitle}>INVITATION ONLY</Text>
+
+        <View style={styles.form}>
+          <Text style={styles.label}>INVITE CODE</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="招待コードを入力"
+            placeholderTextColor="#666"
+            value={inviteCode}
+            onChangeText={setInviteCode}
+            autoCapitalize="none"
+          />
+
+          <Text style={styles.label}>EMAIL</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="example@email.com"
+            placeholderTextColor="#666"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
+
+          <Text style={styles.label}>PASSWORD</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="パスワード（6文字以上）"
+            placeholderTextColor="#666"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
+
+          <TouchableOpacity 
+            style={styles.button} 
+            onPress={handleLogin}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#000" />
+            ) : (
+              <Text style={styles.buttonText}>ENTER SYSTEM</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+
+  // ★修正ポイント：Webならそのまま、スマホならタップで閉じる機能をつける
+  if (Platform.OS === 'web') {
+    return content;
+  }
+
   return (
-    // 背景をタップしたらキーボード閉じる
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      {/* キーボード対応の画面ラッパー */}
-      <KeyboardAvoidingView 
-        style={styles.container} 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
-          <Text style={styles.title}>Evolsence</Text>
-          <Text style={styles.subtitle}>INVITATION ONLY</Text>
-
-          <View style={styles.form}>
-            <Text style={styles.label}>INVITE CODE</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="招待コードを入力"
-              placeholderTextColor="#666"
-              value={inviteCode}
-              onChangeText={setInviteCode}
-              autoCapitalize="none"
-            />
-
-            <Text style={styles.label}>EMAIL</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="example@email.com"
-              placeholderTextColor="#666"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
-
-            <Text style={styles.label}>PASSWORD</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="パスワード（6文字以上）"
-              placeholderTextColor="#666"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
-
-            <TouchableOpacity 
-              style={styles.button} 
-              onPress={handleLogin}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#000" />
-              ) : (
-                <Text style={styles.buttonText}>ENTER SYSTEM</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      {content}
     </TouchableWithoutFeedback>
   );
 }
@@ -147,6 +160,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#333',
     fontSize: 16,
+    // ★Webでのフォーカス枠を消すためのスタイル
+    ...Platform.select({
+      web: { outlineStyle: 'none' } as any
+    }),
   },
   button: {
     backgroundColor: '#fff',
