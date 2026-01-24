@@ -46,23 +46,18 @@ export default function ProfileScreen() {
     }
   };
 
-  // ■ 画像アップロード処理（Web対応版）
   const uploadImage = async (uri: string) => {
     try {
       setUploading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // 1. ファイル拡張子の取得
       const ext = uri.split('.').pop()?.toLowerCase() ?? 'png';
       const fileName = `${user.id}/${Date.now()}.${ext}`;
 
-      // 2. 画像をfetchしてBlobとして取得
-      // ★ここが修正点：WebではBlobで送るのが一番確実です
       const response = await fetch(uri);
       const blob = await response.blob();
 
-      // 3. アップロード
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(fileName, blob, {
@@ -72,10 +67,7 @@ export default function ProfileScreen() {
 
       if (uploadError) throw uploadError;
 
-      // 4. 公開URLを取得
       const { data: publicData } = supabase.storage.from('avatars').getPublicUrl(fileName);
-      
-      // キャッシュ対策で時間を付与してセット
       setAvatarUrl(publicData.publicUrl + `?t=${Date.now()}`);
 
     } catch (error: any) {
@@ -106,7 +98,6 @@ export default function ProfileScreen() {
     if (error) {
       Alert.alert('エラー', error.message);
     } else {
-      // 画面は戻さず完了通知のみ
       Alert.alert('完了', 'プロフィールを更新しました');
     }
     setLoading(false);
@@ -125,6 +116,38 @@ export default function ProfileScreen() {
         { text: "キャンセル", style: "cancel" },
         { text: "ログアウト", style: "destructive", onPress: doLogout }
       ]);
+    }
+  };
+
+  // ■ アカウント削除処理
+  const handleDeleteAccount = async () => {
+    const doDelete = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          // プロフィール削除（Cascadeで他データも消える）
+          const { error } = await supabase.from('profiles').delete().eq('id', user.id);
+          if (error) throw error;
+          // ログアウト
+          await supabase.auth.signOut();
+          router.replace('/(auth)/login');
+        }
+      } catch (error: any) {
+        Alert.alert("エラー", "削除に失敗しました: " + error.message);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm("本当に削除しますか？\nこの操作は取り消せません。\n全てのデータが削除されます。")) doDelete();
+    } else {
+      Alert.alert(
+        "アカウント削除",
+        "本当に削除しますか？\nこの操作は取り消せません。\n全てのデータが削除されます。",
+        [
+          { text: "キャンセル", style: "cancel" },
+          { text: "削除する", style: "destructive", onPress: doDelete }
+        ]
+      );
     }
   };
 
@@ -177,9 +200,17 @@ export default function ProfileScreen() {
             <Text style={styles.saveButtonText}>{loading ? '保存中...' : 'プロフィールを保存'}</Text>
           </TouchableOpacity>
 
+          <View style={styles.divider} />
+
           <TouchableOpacity style={styles.logoutButton} onPress={handleSignOut}>
             <Text style={styles.logoutButtonText}>ログアウト</Text>
           </TouchableOpacity>
+
+          {/* ★追加：アカウント削除ボタン */}
+          <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
+            <Text style={styles.deleteButtonText}>アカウントを削除</Text>
+          </TouchableOpacity>
+          
           <View style={{ height: 50 }} />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -205,8 +236,19 @@ const styles = StyleSheet.create({
   label: { color: '#ccc', fontSize: 12, marginBottom: 8, fontWeight: 'bold' },
   input: { backgroundColor: '#1a1a1a', color: '#fff', borderRadius: 8, padding: 15, fontSize: 16, borderWidth: 1, borderColor: '#333' },
   textArea: { height: 80, textAlignVertical: 'top' },
+  
   saveButton: { backgroundColor: '#00ffff', padding: 16, borderRadius: 30, alignItems: 'center', marginTop: 10, marginBottom: 20 },
   saveButtonText: { color: '#000', fontWeight: 'bold', fontSize: 16 },
-  logoutButton: { padding: 16, alignItems: 'center' },
-  logoutButtonText: { color: '#ff4444', fontWeight: 'bold', fontSize: 14 },
+  
+  divider: { height: 1, backgroundColor: '#222', marginVertical: 20 },
+
+  logoutButton: { padding: 16, alignItems: 'center', marginBottom: 10 },
+  logoutButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
+
+  deleteButton: { padding: 16, alignItems: 'center', marginBottom: 20 },
+  deleteButtonText: { color: '#ff4444', fontSize: 12 }, // 赤文字で少し小さく
+
+  footerLinks: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 10 },
+  linkText: { color: '#666', fontSize: 12 },
+  linkSeparator: { color: '#333', marginHorizontal: 15, fontSize: 12 },
 });
