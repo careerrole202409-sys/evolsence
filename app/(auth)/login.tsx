@@ -6,7 +6,6 @@ import { supabase } from '../../lib/supabase';
 export default function LoginScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [inviteCode, setInviteCode] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -15,39 +14,32 @@ export default function LoginScreen() {
       Keyboard.dismiss();
     }
     
-    if (!email || !password || !inviteCode) {
-      Alert.alert('エラー', '全ての項目を入力してください');
-      return;
-    }
-    
-    if (inviteCode !== 'EVOLSENCE2026') {
-      Alert.alert('エラー', '招待コードが無効です');
+    if (!email || !password) {
+      Alert.alert('エラー', 'メールアドレスとパスワードを入力してください');
       return;
     }
 
     setLoading(true);
 
     try {
-      // 3. まず「ログイン」を試す
+      // 1. まずログインを試行
       const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
         email: email,
         password: password,
       });
 
-      // ログイン成功ならプロフィール更新してダッシュボードへ
       if (!loginError && loginData.session) {
-        // ★ここを追加：ログイン時にもメアドを保存・更新しておく
+        // ログイン成功時、プロフィールを更新
         await supabase.from('profiles').upsert({
           id: loginData.user.id,
-          email: email, // メール保存
+          email: email,
           updated_at: new Date(),
         });
-
         router.replace('/(tabs)/status');
         return;
       }
 
-      // 4. ログイン失敗なら「新規登録」を試す
+      // 2. ユーザーが存在しない等のエラーであれば新規登録を試行
       const { data: signupData, error: signupError } = await supabase.auth.signUp({
         email: email,
         password: password,
@@ -57,25 +49,23 @@ export default function LoginScreen() {
         throw new Error(loginError?.message || signupError.message);
       }
 
-      // 5. 新規登録成功ならプロフィール作成
       if (signupData.user) {
+        // 新規登録成功時、プロフィールを作成
         const { error: profileError } = await supabase
           .from('profiles')
           .upsert({ 
               id: signupData.user.id, 
-              username: 'Unknown User',
-              invite_code: inviteCode,
-              email: email, // ★ここを追加：メール保存
+              username: '新規ユーザー',
+              email: email,
               updated_at: new Date(),
           });
         
         if (profileError) console.log('Profile Error:', profileError);
-        
         router.replace('/(tabs)/status');
       }
 
     } catch (error: any) {
-      Alert.alert('エラー', '認証に失敗しました。\n' + (error.message || '入力を確認してください'));
+      Alert.alert('エラー', '認証に失敗しました。パスワードが間違っているか、入力内容を確認してください。');
     } finally {
       setLoading(false);
     }
@@ -88,20 +78,10 @@ export default function LoginScreen() {
     >
       <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
         <Text style={styles.title}>Evolsence</Text>
-        <Text style={styles.subtitle}>INVITATION ONLY</Text>
-
+        <Text style={styles.subtitle}>エボルセンス</Text>
+        
         <View style={styles.form}>
-          <Text style={styles.label}>INVITE CODE</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="招待コードを入力"
-            placeholderTextColor="#666"
-            value={inviteCode}
-            onChangeText={setInviteCode}
-            autoCapitalize="none"
-          />
-
-          <Text style={styles.label}>EMAIL</Text>
+          <Text style={styles.label}>メールアドレス</Text>
           <TextInput
             style={styles.input}
             placeholder="example@email.com"
@@ -112,10 +92,10 @@ export default function LoginScreen() {
             keyboardType="email-address"
           />
 
-          <Text style={styles.label}>PASSWORD</Text>
+          <Text style={styles.label}>パスワード</Text>
           <TextInput
             style={styles.input}
-            placeholder="パスワード（6文字以上）"
+            placeholder="6文字以上のパスワード"
             placeholderTextColor="#666"
             value={password}
             onChangeText={setPassword}
@@ -130,7 +110,7 @@ export default function LoginScreen() {
             {loading ? (
               <ActivityIndicator color="#000" />
             ) : (
-              <Text style={styles.buttonText}>ENTER SYSTEM</Text>
+              <Text style={styles.buttonText}>新規登録 / ログイン</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -162,7 +142,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: '#666',
+    color: '#888',
     textAlign: 'center',
     marginBottom: 50,
     letterSpacing: 2,

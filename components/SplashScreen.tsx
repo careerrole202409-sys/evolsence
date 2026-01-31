@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Dimensions, StyleSheet, Text, View } from 'react-native';
+import { Animated, StyleSheet, Text, View } from 'react-native';
 
 export default function SplashScreen({ onFinish }: { onFinish: () => void }) {
   const fadeAnim = useRef(new Animated.Value(0)).current; 
@@ -34,15 +34,13 @@ export default function SplashScreen({ onFinish }: { onFinish: () => void }) {
     <View style={styles.container}>
       <Animated.View style={{ opacity: fadeAnim, transform: [{ scale: scaleAnim }] }}>
         <Text style={styles.title}>EVOLSENCE</Text>
+        <Text style={styles.katakana}>エボルセンス</Text>
         <View style={styles.line} />
-        {/* 実利重視のタグライン */}
         <Text style={styles.subtitle}>その読書を、ビジネスの武器に変える。</Text>
       </Animated.View>
     </View>
   );
 }
-
-const { width } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
@@ -58,6 +56,13 @@ const styles = StyleSheet.create({
     color: '#fff',
     letterSpacing: 5,
     textAlign: 'center',
+    marginBottom: 8, // カタカナとの間隔
+  },
+  katakana: {
+    fontSize: 14,
+    color: '#888',
+    letterSpacing: 2,
+    textAlign: 'center',
   },
   line: {
     width: 40,
@@ -70,7 +75,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 15, 
     color: '#ccc',
-    letterSpacing: 1, // 日本語として読みやすい間隔
+    letterSpacing: 1,
     textAlign: 'center',
     fontWeight: '600',
   },
