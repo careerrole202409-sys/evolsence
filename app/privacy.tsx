@@ -9,9 +9,9 @@ export default function PrivacyScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
+<TouchableOpacity onPress={() => router.replace('/')} style={styles.backButton}>
+  <Ionicons name="arrow-back" size={24} color="#fff" />
+</TouchableOpacity>
         <Text style={styles.headerTitle}>プライバシーポリシー</Text>
         <View style={{ width: 40 }} />
       </View>
@@ -37,7 +37,7 @@ export default function PrivacyScreen() {
           ユーザーは、マイページ下部よりいつでもアカウントを削除し、サーバー上の全データを消去することができます。{"\n\n"}
           
           <Text style={styles.heading}>5. お問い合わせ{"\n"}</Text>
-          本ポリシーに関するお問い合わせは、サポート窓口までご連絡ください。
+          本ポリシーに関するお問い合わせは、サポート窓口（contact@evolsence.com）までご連絡ください。
         </Text>
         <View style={{ height: 50 }} />
       </ScrollView>

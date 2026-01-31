@@ -9,9 +9,9 @@ export default function DeletionScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
+<TouchableOpacity onPress={() => router.replace('/')} style={styles.backButton}>
+  <Ionicons name="arrow-back" size={24} color="#fff" />
+</TouchableOpacity>
         <Text style={styles.headerTitle}>データ削除規定</Text>
         <View style={{ width: 40 }} />
       </View>

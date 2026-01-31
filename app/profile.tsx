@@ -119,16 +119,13 @@ export default function ProfileScreen() {
     }
   };
 
-  // ■ アカウント削除処理
   const handleDeleteAccount = async () => {
     const doDelete = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          // プロフィール削除（Cascadeで他データも消える）
           const { error } = await supabase.from('profiles').delete().eq('id', user.id);
           if (error) throw error;
-          // ログアウト
           await supabase.auth.signOut();
           router.replace('/(auth)/login');
         }
@@ -154,7 +151,8 @@ export default function ProfileScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        {/* ★修正：トップ画面に戻るように変更 */}
+        <TouchableOpacity onPress={() => router.replace('/')} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>マイページ</Text>
@@ -206,10 +204,24 @@ export default function ProfileScreen() {
             <Text style={styles.logoutButtonText}>ログアウト</Text>
           </TouchableOpacity>
 
-          {/* ★追加：アカウント削除ボタン */}
           <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
             <Text style={styles.deleteButtonText}>アカウントを削除</Text>
           </TouchableOpacity>
+
+          {/* ★追加：アカウント削除の下にリンクを配置 */}
+          <View style={styles.footerLinks}>
+            <TouchableOpacity onPress={() => router.push('/terms')}>
+              <Text style={styles.linkText}>利用規約</Text>
+            </TouchableOpacity>
+            <Text style={styles.linkSeparator}>|</Text>
+            <TouchableOpacity onPress={() => router.push('/privacy')}>
+              <Text style={styles.linkText}>プライバシーポリシー</Text>
+            </TouchableOpacity>
+            <Text style={styles.linkSeparator}>|</Text>
+            <TouchableOpacity onPress={() => router.push('/deletion')}>
+              <Text style={styles.linkText}>データ削除規定</Text>
+            </TouchableOpacity>
+          </View>
           
           <View style={{ height: 50 }} />
         </ScrollView>
@@ -245,10 +257,10 @@ const styles = StyleSheet.create({
   logoutButton: { padding: 16, alignItems: 'center', marginBottom: 10 },
   logoutButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
 
-  deleteButton: { padding: 16, alignItems: 'center', marginBottom: 20 },
-  deleteButtonText: { color: '#ff4444', fontSize: 12 }, // 赤文字で少し小さく
+  deleteButton: { padding: 16, alignItems: 'center', marginBottom: 10 }, // 下の間隔を少し調整
+  deleteButtonText: { color: '#ff4444', fontSize: 12 },
 
   footerLinks: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 10 },
-  linkText: { color: '#666', fontSize: 12 },
-  linkSeparator: { color: '#333', marginHorizontal: 15, fontSize: 12 },
+  linkText: { color: '#666', fontSize: 11 }, // 少しだけ小さくして並びやすく
+  linkSeparator: { color: '#333', marginHorizontal: 10, fontSize: 11 },
 });

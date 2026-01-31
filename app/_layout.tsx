@@ -1,7 +1,7 @@
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { useEffect, useState } from 'react';
 import SplashScreen from '../components/SplashScreen';
-import { ProcessingProvider } from '../contexts/ProcessingContext'; // ★追加
+import { ProcessingProvider } from '../contexts/ProcessingContext';
 import { supabase } from '../lib/supabase';
 
 export default function RootLayout() {
@@ -31,10 +31,17 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (!initialized || !splashFinished) return;
+
     const inAuthGroup = segments[0] === '(auth)';
+    
+    // ★修正: ログイン不要でアクセスを許可するルートのリスト
+    const isPublicPage = ['privacy', 'terms', 'deletion'].includes(segments[0]);
+
     if (session && inAuthGroup) {
+      // ログイン済みでログイン画面系にいる場合は、メイン画面へ
       router.replace('/(tabs)/status');
-    } else if (!session && !inAuthGroup) {
+    } else if (!session && !inAuthGroup && !isPublicPage) {
+      // ★修正: 未ログインで、かつ認証グループでも公開ページでもない場合のみ、ログイン画面へ
       router.replace('/(auth)/login');
     }
   }, [session, initialized, splashFinished, segments]);
@@ -43,7 +50,6 @@ export default function RootLayout() {
     return <SplashScreen onFinish={() => setSplashFinished(true)} />;
   }
 
-  // ★ここで全体を包む
   return (
     <ProcessingProvider>
       <Slot />
