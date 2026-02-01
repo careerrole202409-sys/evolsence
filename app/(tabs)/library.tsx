@@ -68,16 +68,60 @@ export default function LibraryScreen() {
   };
   const addBulkRow = () => { setBulkInputs([...bulkInputs, { title: '', author: '' }]); };
 
+  // ★復活させた計算用関数（削除時の減算に必要）
+  const updateStats = async (userId: string, points: any, mode: 'add' | 'subtract') => {
+    const { data: currentStats } = await supabase.from('latest_stats').select('*').eq('user_id', userId).single();
+    const stats = currentStats || {}; 
+    const newStats: any = { ...stats };
+
+    Object.keys(points).forEach(key => {
+      const val = points[key] || 0;
+      const currentVal = stats[key] || 0;
+      newStats[key] = mode === 'add' ? currentVal + val : Math.max(0, currentVal - val);
+    });
+
+    await supabase.from('latest_stats').upsert({ user_id: userId, ...newStats, updated_at: new Date() });
+  };
+
+  // ★修正した削除処理
   const handleDeleteBook = async () => {
     if (!selectedBook) return;
+
     const confirmDelete = async () => {
-      await supabase.from('read_logs').delete().eq('id', selectedBook.id);
-      setSelectedBook(null); fetchBooks();
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // 1. ステータスを減算
+        await updateStats(user.id, selectedBook.gained_points, 'subtract');
+
+        // 2. ログを削除
+        const { error } = await supabase.from('read_logs').delete().eq('id', selectedBook.id);
+        if (error) throw error;
+
+        setSelectedBook(null);
+        fetchBooks();
+
+        // アプリ版のみ完了アラート
+        if (Platform.OS !== 'web') {
+          Alert.alert("削除完了", "本を削除し、ステータスを戻しました。");
+        }
+      } catch (error: any) {
+        Alert.alert("エラー", "削除に失敗しました");
+      }
     };
+
     if (Platform.OS === 'web') {
-      if (window.confirm("本当に削除しますか？")) confirmDelete();
+      if (window.confirm("本当に削除しますか？\n獲得したステータスもマイナスされます。")) confirmDelete();
     } else {
-      Alert.alert("削除", "本当に削除しますか？", [{ text: "キャンセル", style: "cancel" }, { text: "削除", style: "destructive", onPress: confirmDelete }]);
+      Alert.alert(
+        "本の削除",
+        "本当に削除しますか？\n獲得したステータスもマイナスされます。",
+        [
+          { text: "キャンセル", style: "cancel" },
+          { text: "削除", style: "destructive", onPress: confirmDelete }
+        ]
+      );
     }
   };
 
@@ -124,17 +168,15 @@ export default function LibraryScreen() {
     </TouchableOpacity>
   );
 
-  // コンテナの切り替え（WebならView、アプリならKeyboardAvoidingView）
   const ContainerComponent = Platform.OS === 'web' ? View : KeyboardAvoidingView;
   const containerProps = Platform.OS === 'web' 
-    ? { style: styles.modalOverlay } // Webはスタイルのみ
+    ? { style: styles.modalOverlay } 
     : { 
         style: styles.modalOverlay, 
         behavior: Platform.OS === 'ios' ? 'padding' : 'height',
         keyboardVerticalOffset: Platform.OS === 'ios' ? 100 : 0
       };
 
-  // タップ検知ラッパー（Webなら何もしない）
   const Wrapper = Platform.OS === 'web' ? React.Fragment : TouchableWithoutFeedback;
   const wrapperProps = Platform.OS === 'web' ? {} : { onPress: Keyboard.dismiss };
 
@@ -247,24 +289,8 @@ const styles = StyleSheet.create({
   footer: { position: 'absolute', bottom: 0, width: '100%', padding: 20, backgroundColor: 'rgba(0,0,0,0.9)' },
   addButton: { backgroundColor: '#fff', padding: 16, borderRadius: 30, alignItems: 'center' },
   addButtonText: { color: '#000', fontWeight: 'bold', fontSize: 16, letterSpacing: 1 },
-  
-  // ★レイアウト修正
-  modalOverlay: { 
-    flex: 1, 
-    backgroundColor: 'rgba(0,0,0,0.8)', 
-    // Webなら中央寄せ、アプリなら下寄せ
-    justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end', 
-    padding: 20 
-  },
-  inputContainer: { 
-    backgroundColor: '#1a1a1a', 
-    padding: 30, 
-    borderRadius: 20, 
-    width: '100%', 
-    // Webならマージンなし、アプリならキーボード避けのマージン
-    marginBottom: Platform.OS === 'web' ? 0 : 50 
-  },
-  
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end', padding: 20 },
+  inputContainer: { backgroundColor: '#1a1a1a', padding: 30, borderRadius: 20, width: '100%', marginBottom: 50 },
   modeTabs: { flexDirection: 'row', marginBottom: 20, backgroundColor: '#111', borderRadius: 10, padding: 2 },
   modeTab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
   activeModeTab: { backgroundColor: '#333' },
@@ -276,19 +302,7 @@ const styles = StyleSheet.create({
   addMoreButton: { padding: 10, alignItems: 'center' },
   addMoreText: { color: '#00ffff', fontWeight: 'bold' },
   editInput: { backgroundColor: '#333', color: '#fff', padding: 15, borderRadius: 10, fontSize: 16, ...Platform.select({ web: { outlineStyle: 'none' } as any }) },
-  
-  // モーダルコンテンツ
-  modalContent: { 
-    backgroundColor: '#1a1a1a', 
-    // Webなら少し小さく、アプリなら画面いっぱい
-    height: Platform.OS === 'web' ? '80%' : '92%', 
-    // Webなら全角丸、アプリなら上だけ角丸
-    borderRadius: 20,
-    borderTopLeftRadius: 20, 
-    borderTopRightRadius: 20, 
-    padding: 25 
-  },
-  
+  modalContent: { backgroundColor: '#1a1a1a', height: '92%', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 25 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
   headerIcons: { flexDirection: 'row', alignItems: 'center' },
   detailTitle: { fontSize: 24, fontWeight: 'bold', color: '#fff', marginBottom: 5, flex: 1 },
