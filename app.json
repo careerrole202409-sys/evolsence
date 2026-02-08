@@ -10,7 +10,9 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.kotahara.evolsence"
+      "bundleIdentifier": "com.kotahara.evolsence",
+      "buildNumber": "1.0.0",
+      "icon": "./assets/images/icon.png"
     },
     "android": {
       "package": "com.kotahara.evolsence",
