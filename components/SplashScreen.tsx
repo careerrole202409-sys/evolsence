@@ -36,7 +36,7 @@ export default function SplashScreen({ onFinish }: { onFinish: () => void }) {
         <Text style={styles.title}>EVOLSENCE</Text>
         <Text style={styles.katakana}>エボルセンス</Text>
         <View style={styles.line} />
-        <Text style={styles.subtitle}>読書の記録＆共有アプリ。</Text>
+        <Text style={styles.subtitle}>読書の記録＆共有アプリ</Text>
       </Animated.View>
     </View>
   );
