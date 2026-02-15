@@ -6,71 +6,124 @@ import { supabase } from '../../lib/supabase';
 export default function LoginScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  
+  // 入力状態
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
 
+  // ステップ管理 ('auth': 認証 / 'name': 名前登録)
+  const [step, setStep] = useState<'auth' | 'name'>('auth');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // ■ 認証処理（ログイン or 新規登録）
   const handleAuth = async () => {
-    if (Platform.OS !== 'web') {
-      Keyboard.dismiss();
-    }
+    if (Platform.OS !== 'web') Keyboard.dismiss();
     
+    // 入力チェック
     if (!email || !password) {
       Alert.alert('エラー', 'メールアドレスとパスワードを入力してください');
+      return;
+    }
+    // パスワード文字数チェック（Supabase仕様）
+    if (password.length < 6) {
+      Alert.alert('エラー', 'パスワードは6文字以上で入力してください');
       return;
     }
 
     setLoading(true);
 
     try {
-      // 1. まずログインを試行
+      // 1. まず「ログイン」を試行
       const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: password,
+        email,
+        password,
       });
 
+      // --- ログイン成功時の処理 ---
       if (!loginError && loginData.session) {
-        // ログイン成功時、プロフィールを更新
-        await supabase.from('profiles').upsert({
-          id: loginData.user.id,
-          email: email,
-          updated_at: new Date(),
-        });
-        router.replace('/(tabs)/status');
+        // 名前が設定済みか確認
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('id', loginData.user.id)
+          .single();
+
+        // 名前がちゃんとある人 -> そのままホームへ
+        if (profile?.username && profile.username !== '新規ユーザー' && profile.username !== 'Unknown User') {
+          router.replace('/(tabs)/status');
+          return;
+        }
+
+        // 名前がない/初期値の人 -> 名前入力ステップへ
+        setCurrentUserId(loginData.user.id);
+        setStep('name');
+        setLoading(false);
         return;
       }
 
-      // 2. ユーザーが存在しない等のエラーであれば新規登録を試行
+      // --- 2. ログイン失敗なら「新規登録」を試行 ---
       const { data: signupData, error: signupError } = await supabase.auth.signUp({
-        email: email,
-        password: password,
+        email,
+        password,
       });
 
       if (signupError) {
-        throw new Error(loginError?.message || signupError.message);
+        throw new Error(signupError.message);
       }
 
       if (signupData.user) {
-        // 新規登録成功時、プロフィールを作成
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .upsert({ 
-              id: signupData.user.id, 
-              username: '新規ユーザー',
-              email: email,
-              updated_at: new Date(),
-          });
+        // 新規登録成功：まずは仮のプロフィールを作る
+        await supabase.from('profiles').upsert({ 
+          id: signupData.user.id, 
+          email: email,
+          username: '新規ユーザー', // 仮の名前
+          updated_at: new Date(),
+        });
         
-        if (profileError) console.log('Profile Error:', profileError);
-        router.replace('/(tabs)/status');
+        // 名前入力ステップへ
+        setCurrentUserId(signupData.user.id);
+        setStep('name');
+        setLoading(false); // 名前入力待ちにするのでローディング解除
       }
 
     } catch (error: any) {
-      Alert.alert('エラー', '認証に失敗しました。パスワードが間違っているか、入力内容を確認してください。');
-    } finally {
+      // シンプルなエラー表示
+      Alert.alert('エラー', '認証に失敗しました。入力内容を確認してください。');
       setLoading(false);
     }
   };
 
+  // ■ 名前保存処理
+  const handleSaveName = async () => {
+    if (!username.trim()) {
+      Alert.alert('エラー', '名前を入力してください');
+      return;
+    }
+    if (!currentUserId) return;
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          username: username,
+          updated_at: new Date()
+        })
+        .eq('id', currentUserId);
+
+      if (error) throw error;
+
+      // 完了したらホームへ
+      router.replace('/(tabs)/status');
+
+    } catch (error: any) {
+      Alert.alert('エラー', '設定に失敗しました。もう一度お試しください。');
+      setLoading(false);
+    }
+  };
+
+  // 画面コンテンツ
   const content = (
     <KeyboardAvoidingView 
       style={styles.container} 
@@ -80,44 +133,80 @@ export default function LoginScreen() {
         <Text style={styles.title}>Evolsence</Text>
         <Text style={styles.subtitle}>エボルセンス</Text>
         
-        <View style={styles.form}>
-          <Text style={styles.label}>メールアドレス</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="example@email.com"
-            placeholderTextColor="#666"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
+        {step === 'auth' ? (
+          // 【ステップ1】認証フォーム
+          <View style={styles.form}>
+            <Text style={styles.label}>メールアドレス</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="example@email.com"
+              placeholderTextColor="#666"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
 
-          <Text style={styles.label}>パスワード</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="6文字以上のパスワード"
-            placeholderTextColor="#666"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+            <View style={styles.labelRow}>
+              <Text style={styles.label}>パスワード</Text>
+              <Text style={styles.subLabel}>（6文字以上）</Text>
+            </View>
+            <TextInput
+              style={styles.input}
+              placeholder="パスワードを入力"
+              placeholderTextColor="#666"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
 
-          <TouchableOpacity 
-            style={styles.button} 
-            onPress={handleAuth}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#000" />
-            ) : (
-              <Text style={styles.buttonText}>新規登録 / ログイン</Text>
-            )}
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity 
+              style={styles.button} 
+              onPress={handleAuth}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#000" />
+              ) : (
+                <Text style={styles.buttonText}>新規登録 / ログイン</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : (
+          // 【ステップ2】名前入力フォーム
+          <View style={styles.form}>
+            <Text style={styles.instruction}>
+              はじめまして。{"\n"}あなたのお名前を教えてください。
+            </Text>
+            
+            <Text style={styles.label}>ユーザー名</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="例: 田中 太郎"
+              placeholderTextColor="#666"
+              value={username}
+              onChangeText={setUsername}
+              autoFocus={true}
+            />
+
+            <TouchableOpacity 
+              style={styles.button} 
+              onPress={handleSaveName}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#000" />
+              ) : (
+                <Text style={styles.buttonText}>はじめる</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
 
+  // Web対応ラッパー
   if (Platform.OS === 'web') return content;
 
   return (
@@ -150,10 +239,26 @@ const styles = StyleSheet.create({
   form: {
     gap: 15,
   },
+  instruction: {
+    color: '#ccc',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 24,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 4,
+  },
   label: {
     color: '#fff',
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  subLabel: {
+    color: '#666',
+    fontSize: 11,
     marginLeft: 4,
   },
   input: {

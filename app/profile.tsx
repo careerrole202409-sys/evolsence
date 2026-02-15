@@ -151,8 +151,8 @@ export default function ProfileScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        {/* ★修正：トップ画面に戻るように変更 */}
-        <TouchableOpacity onPress={() => router.replace('/')} style={styles.backButton}>
+        {/* ★修正：router.back() に戻しました */}
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>マイページ</Text>
@@ -208,7 +208,7 @@ export default function ProfileScreen() {
             <Text style={styles.deleteButtonText}>アカウントを削除</Text>
           </TouchableOpacity>
 
-          {/* ★追加：アカウント削除の下にリンクを配置 */}
+          {/* ★修正：3つのリンクを並べて表示 */}
           <View style={styles.footerLinks}>
             <TouchableOpacity onPress={() => router.push('/terms')}>
               <Text style={styles.linkText}>利用規約</Text>
@@ -248,19 +248,14 @@ const styles = StyleSheet.create({
   label: { color: '#ccc', fontSize: 12, marginBottom: 8, fontWeight: 'bold' },
   input: { backgroundColor: '#1a1a1a', color: '#fff', borderRadius: 8, padding: 15, fontSize: 16, borderWidth: 1, borderColor: '#333' },
   textArea: { height: 80, textAlignVertical: 'top' },
-  
   saveButton: { backgroundColor: '#00ffff', padding: 16, borderRadius: 30, alignItems: 'center', marginTop: 10, marginBottom: 20 },
   saveButtonText: { color: '#000', fontWeight: 'bold', fontSize: 16 },
-  
   divider: { height: 1, backgroundColor: '#222', marginVertical: 20 },
-
   logoutButton: { padding: 16, alignItems: 'center', marginBottom: 10 },
   logoutButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
-
-  deleteButton: { padding: 16, alignItems: 'center', marginBottom: 10 }, // 下の間隔を少し調整
+  deleteButton: { padding: 16, alignItems: 'center', marginBottom: 10 },
   deleteButtonText: { color: '#ff4444', fontSize: 12 },
-
   footerLinks: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 10 },
-  linkText: { color: '#666', fontSize: 11 }, // 少しだけ小さくして並びやすく
+  linkText: { color: '#666', fontSize: 11 },
   linkSeparator: { color: '#333', marginHorizontal: 10, fontSize: 11 },
 });

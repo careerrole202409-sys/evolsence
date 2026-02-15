@@ -1,6 +1,6 @@
 import React from 'react';
 import { View } from 'react-native';
-import Svg, { Circle, Line, Polygon, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Line, Polygon, Text as SvgText, TSpan } from 'react-native-svg';
 
 type Props = {
   data: number[];   
@@ -9,18 +9,15 @@ type Props = {
   size?: number;    
 };
 
-export default function RadarChart({ data, labels, color, size = 250 }: Props) {
+export default function RadarChart({ data, labels, color, size = 360 }: Props) {
   const center = size / 2;
-  const radius = (size / 2) - 50; 
+  const radius = 80; // 図形を小さくして、文字が切れないスペースを確保
   const angleSlice = (Math.PI * 2) / 5; 
 
-  // ★ここが変更点：データの中の最大値を探す（最低でも10にしておく）
-  // これにより、値が小さくてもチャートが大きく描画されます
   const maxValue = Math.max(...data, 10);
 
-  const getXY = (value: number, index: number) => {
-    // 値を最大値で割って割合を出す
-    const r = (value / maxValue) * radius;
+  const getXY = (value: number, index: number, customRadius?: number) => {
+    const r = (value / maxValue) * (customRadius || radius);
     const angle = index * angleSlice - Math.PI / 2; 
     return {
       x: center + r * Math.cos(angle),
@@ -28,23 +25,22 @@ export default function RadarChart({ data, labels, color, size = 250 }: Props) {
     };
   };
 
+  // 変数名を統一
   const polygonPoints = data.map((val, i) => {
     const { x, y } = getXY(val, i);
     return `${x},${y}`;
   }).join(' ');
 
-  // 背景のグリッドも割合（20%, 40%...）で描画する
   const gridLevels = [0.2, 0.4, 0.6, 0.8, 1.0];
 
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
       <Svg height={size} width={size}>
-        {/* 1. 背景のグリッド */}
+        {/* 背景グリッド */}
         {gridLevels.map((rate, idx) => (
           <Polygon
             key={idx}
             points={[0, 1, 2, 3, 4].map(i => {
-              // 最大値の〇〇%の位置に線を引く
               const { x, y } = getXY(maxValue * rate, i);
               return `${x},${y}`;
             }).join(' ')}
@@ -54,46 +50,61 @@ export default function RadarChart({ data, labels, color, size = 250 }: Props) {
           />
         ))}
 
-        {/* 2. 軸線 */}
+        {/* 軸線 */}
         {[0, 1, 2, 3, 4].map((i) => {
           const { x, y } = getXY(maxValue, i);
           return <Line key={i} x1={center} y1={center} x2={x} y2={y} stroke="#333" strokeWidth="1" />;
         })}
 
-        {/* 3. データ（色付きの五角形） */}
-        <Polygon
-          points={polygonPoints}
-          fill={color}
-          fillOpacity="0.2"
-          stroke={color}
-          strokeWidth="2"
+        {/* データポリゴン（ここを polygonPoints に修正しました） */}
+        <Polygon 
+          points={polygonPoints} 
+          fill={color} 
+          fillOpacity={0.2} 
+          stroke={color} 
+          strokeWidth={2} 
         />
 
-        {/* 4. 頂点のドット */}
+        {/* 頂点ドット */}
         {data.map((val, i) => {
           const { x, y } = getXY(val, i);
           return <Circle key={i} cx={x} cy={y} r="3" fill={color} />;
         })}
 
-        {/* 5. ラベル文字 */}
+        {/* ラベル */}
         {labels.map((label, i) => {
-          const labelRadius = radius + 30; 
           const angle = i * angleSlice - Math.PI / 2;
-          const x = center + labelRadius * Math.cos(angle);
-          const y = center + labelRadius * Math.sin(angle);
+          const labelRadius = radius + 20; 
+          const { x, y } = getXY(maxValue, i, labelRadius);
           
+          let textAnchor: "start" | "middle" | "end" = "middle";
+          const cos = Math.cos(angle);
+          if (cos > 0.3) textAnchor = "start"; 
+          else if (cos < -0.3) textAnchor = "end";
+
+          const lines = label.split('・');
+          // 一番上(0)は少し上に、下側(2,3)は少し下にずらす
+          const yOffset = (i === 2 || i === 3) ? 15 : (i === 0 ? -15 : 0);
+
           return (
             <SvgText
               key={i}
               x={x}
-              y={y}
+              y={y + yOffset}
               fill="#fff"
-              fontSize="14" 
+              fontSize="11"
               fontWeight="bold"
-              textAnchor="middle"
-              alignmentBaseline="middle"
+              textAnchor={textAnchor}
             >
-              {label}
+              {lines.map((line, index) => (
+                <TSpan
+                  key={index}
+                  x={x}
+                  dy={index === 0 ? 0 : 14}
+                >
+                  {index === 0 && lines.length > 1 ? line + "・" : line}
+                </TSpan>
+              ))}
             </SvgText>
           );
         })}
